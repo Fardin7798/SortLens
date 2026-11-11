@@ -1,4 +1,4 @@
-# Task 02: Date sort
+# Task 03: Date sort
 Status: todo
 Roadmap line: `Date sort (Takeout > EXIF > filename > file time)`
 
@@ -15,7 +15,7 @@ Every photo and video needs one best "taken at" date, with the source recorded, 
    `run_dates(con, *, open_file, batch_size=50, on_progress=None) -> dict[str, int]`
    - `open_file(row) -> BinaryIO` opens a media file **read-only**, whether plain (`root/rel_path`) or inside a zip (`container` + `rel_path`, via `zipfile`). Put this opener in `backend/app/importers/` so later steps reuse it.
 2. Priority for each row (stop at the first that gives a date):
-   1. `takeout` — already set by the importer. **Never overwrite it.**
+   1. `takeout` / `takeout_live` — already set by the importer. **Never overwrite it.**
    2. `exif` — photos only: EXIF `DateTimeOriginal`, else `DateTimeDigitized` (Pillow; `pillow-heif` for HEIC). Use `OffsetTimeOriginal` when present.
    3. `filename` — patterns: `IMG_20230514_123456`, `PXL_20230514_123456789`, `VID_20230514_123456`, `Screenshot_2023-05-14-12-34-56`, `IMG-20230514-WA0001` (WhatsApp, date only), `2023-05-14 12.34.56`, `20230514_123456`. Reject impossible dates (year < 1990 or in the future).
    4. `file` — file mtime (plain file) or zip entry time. Lowest trust.

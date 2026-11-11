@@ -33,4 +33,4 @@ A one-command setup script comes in v1.
 - `docs/tasks/` the work queue, one file per task
 
 ## Working with a coding agent
-Give the agent one task: "Read `AGENTS.md`, then do `docs/tasks/02-date-sort.md`." It must pass `scripts/check.sh` (Windows: `scripts\check.ps1`) and work on `dev`.
+Give the agent one task: "Read `AGENTS.md`, then do `docs/tasks/03-date-sort.md`." It must pass `scripts/check.sh` (Windows: `scripts\check.ps1`) and work on `dev`.

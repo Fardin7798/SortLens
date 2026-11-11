@@ -4,7 +4,7 @@
 Takeout zips / folder ──► importer ──► MediaRecord ──► pipeline steps ──► SQLite ──► API (+SSE) ──► local UI (built last)
                                                     date │ hash │ phash │ faces
 ```
-- **MediaRecord**: path, source (takeout|folder), size, taken_at + source of date, gps, takeout fields (title, people, favorited), hashes.
+- **MediaRecord**: path, source (takeout|folder), size, taken_at + source of date, gps, takeout fields (title, caption, people, favorite, archived, trashed, upload time, camera GPS, origin, special folder, album copy, live-photo pair, raw sidecar JSON), hashes. Albums from `metadata.json` go to the `albums` table.
 - **Pipeline**: each step reads records missing its output, works in batches (default 50), commits per batch, so a stop/restart resumes.
 - **Date priority**: Takeout photoTakenTime > EXIF DateTimeOriginal > date in filename > file modified time. The chosen source is stored.
 - **Duplicates**: exact = SHA-256; near = perceptual hash distance; Takeout album copies and `-edited` pairs grouped.

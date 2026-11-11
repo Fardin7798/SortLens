@@ -7,7 +7,11 @@ from collections.abc import Callable, Iterable
 from dataclasses import asdict
 from pathlib import Path
 
-from app.importers.base import MediaRecord
+from app.importers.base import AlbumRecord, MediaRecord
+
+# Bump when importers start reading new facts: rows saved by an older version are re-read
+# on the next import even if the file itself did not change.
+IMPORTER_VERSION = 2
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS media (
@@ -34,6 +38,18 @@ CREATE TABLE IF NOT EXISTS media (
     imported_at REAL NOT NULL,
     UNIQUE (root, container, rel_path)
 );
+CREATE TABLE IF NOT EXISTS albums (
+    id INTEGER PRIMARY KEY,
+    root TEXT NOT NULL,
+    folder TEXT NOT NULL,
+    title TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    access TEXT NOT NULL DEFAULT '',
+    date REAL,
+    lat REAL,
+    lon REAL,
+    UNIQUE (root, folder)
+);
 CREATE TABLE IF NOT EXISTS import_runs (
     id INTEGER PRIMARY KEY,
     source TEXT NOT NULL,
@@ -52,7 +68,30 @@ COLS = [
     "source", "root", "container", "rel_path", "name", "kind", "size", "mtime", "album",
     "is_edited", "sidecar", "taken_at", "taken_at_source", "lat", "lon", "title",
     "description", "people", "favorited",
+    "location_source", "gps_lat", "gps_lon", "uploaded_at", "archived", "trashed",
+    "image_views", "origin", "device_type", "partner_shared", "special_folder",
+    "album_copy_of", "live_photo_of", "sidecar_json", "importer_version",
 ]  # fmt: skip
+BOOL_COLS = {"is_edited", "favorited", "archived", "trashed", "partner_shared"}
+
+# Columns added after v0.1. connect() adds any that an older database lacks.
+ADDED_COLUMNS = {
+    "location_source": "TEXT NOT NULL DEFAULT ''",
+    "gps_lat": "REAL",
+    "gps_lon": "REAL",
+    "uploaded_at": "REAL",
+    "archived": "INTEGER NOT NULL DEFAULT 0",
+    "trashed": "INTEGER NOT NULL DEFAULT 0",
+    "image_views": "INTEGER",
+    "origin": "TEXT NOT NULL DEFAULT ''",
+    "device_type": "TEXT NOT NULL DEFAULT ''",
+    "partner_shared": "INTEGER NOT NULL DEFAULT 0",
+    "special_folder": "TEXT NOT NULL DEFAULT ''",
+    "album_copy_of": "TEXT NOT NULL DEFAULT ''",
+    "live_photo_of": "TEXT NOT NULL DEFAULT ''",
+    "sidecar_json": "TEXT NOT NULL DEFAULT ''",
+    "importer_version": "INTEGER NOT NULL DEFAULT 1",
+}
 
 
 def connect(db_path: Path) -> sqlite3.Connection:
@@ -60,14 +99,20 @@ def connect(db_path: Path) -> sqlite3.Connection:
     con = sqlite3.connect(db_path)
     con.execute("PRAGMA journal_mode=WAL")
     con.executescript(SCHEMA)
+    have = {r[1] for r in con.execute("PRAGMA table_info(media)")}
+    for col, decl in ADDED_COLUMNS.items():
+        if col not in have:
+            con.execute(f"ALTER TABLE media ADD COLUMN {col} {decl}")
+    con.commit()
     return con
 
 
 def _row(rec: MediaRecord) -> tuple[object, ...]:
     d = asdict(rec)
     d["people"] = json.dumps(d["people"], ensure_ascii=False)
-    d["is_edited"] = int(d["is_edited"])
-    d["favorited"] = int(d["favorited"])
+    for c in BOOL_COLS:
+        d[c] = int(d[c])
+    d["importer_version"] = IMPORTER_VERSION
     return tuple(d[c] for c in COLS)
 
 
@@ -96,10 +141,16 @@ def import_records(
         for i, rec in enumerate(records, 1):
             counts["seen"] += 1
             old = con.execute(
-                "SELECT size, mtime FROM media WHERE root=? AND container=? AND rel_path=?",
+                "SELECT size, mtime, importer_version FROM media "
+                "WHERE root=? AND container=? AND rel_path=?",
                 (rec.root, rec.container, rec.rel_path),
             ).fetchone()
-            if old and old[0] == rec.size and abs(old[1] - rec.mtime) < 1e-6:
+            if (
+                old
+                and old[0] == rec.size
+                and abs(old[1] - rec.mtime) < 1e-6
+                and old[2] >= IMPORTER_VERSION
+            ):
                 counts["unchanged"] += 1
             else:
                 con.execute(
@@ -132,6 +183,30 @@ def _save_run(con: sqlite3.Connection, run_id: int | None, c: dict[str, int], st
     con.commit()
 
 
+def save_albums(con: sqlite3.Connection, albums: Iterable[AlbumRecord]) -> int:
+    n = 0
+    for a in albums:
+        con.execute(
+            "INSERT INTO albums (root, folder, title, description, access, date, lat, lon) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(root, folder) DO UPDATE SET "
+            "title=excluded.title, description=excluded.description, access=excluded.access, "
+            "date=excluded.date, lat=excluded.lat, lon=excluded.lon",
+            (a.root, a.folder, a.title, a.description, a.access, a.date, a.lat, a.lon),
+        )
+        n += 1
+    con.commit()
+    return n
+
+
+def people(con: sqlite3.Connection) -> list[tuple[str, int]]:
+    """Names tagged in Google Photos with how many files carry each, most first."""
+    rows = con.execute(
+        "SELECT j.value, COUNT(*) FROM media, json_each(media.people) AS j "
+        "GROUP BY j.value ORDER BY COUNT(*) DESC, j.value"
+    ).fetchall()
+    return [(str(r[0]), int(r[1])) for r in rows]
+
+
 def stats(con: sqlite3.Connection) -> dict[str, int]:
     q = lambda sql: int(con.execute(sql).fetchone()[0])  # noqa: E731
     return {
@@ -146,4 +221,20 @@ def stats(con: sqlite3.Connection) -> dict[str, int]:
         "takeout_without_sidecar": q(
             "SELECT COUNT(*) FROM media WHERE source='takeout' AND sidecar=''"
         ),
+        "location_google": q("SELECT COUNT(*) FROM media WHERE location_source='google'"),
+        "location_camera": q("SELECT COUNT(*) FROM media WHERE location_source='camera'"),
+        "favorites": q("SELECT COUNT(*) FROM media WHERE favorited=1"),
+        "archived": q("SELECT COUNT(*) FROM media WHERE archived=1"),
+        "trashed": q("SELECT COUNT(*) FROM media WHERE trashed=1"),
+        "partner_shared": q("SELECT COUNT(*) FROM media WHERE partner_shared=1"),
+        "failed_videos": q("SELECT COUNT(*) FROM media WHERE special_folder='failed_videos'"),
+        "in_albums": q("SELECT COUNT(*) FROM media WHERE album!=''"),
+        "album_copies": q("SELECT COUNT(*) FROM media WHERE album_copy_of!=''"),
+        "edited": q("SELECT COUNT(*) FROM media WHERE is_edited=1"),
+        "live_videos": q("SELECT COUNT(*) FROM media WHERE live_photo_of!=''"),
+        "with_people": q("SELECT COUNT(*) FROM media WHERE people!='[]'"),
+        "people_names": q(
+            "SELECT COUNT(DISTINCT j.value) FROM media, json_each(media.people) AS j"
+        ),
+        "albums": q("SELECT COUNT(*) FROM albums"),
     }
