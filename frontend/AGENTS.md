@@ -1,3 +1,7 @@
+# Frontend notes for agents
+
+Project rules are in the root `AGENTS.md`; read that first. The block below is maintained by Next.js itself.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know

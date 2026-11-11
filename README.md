@@ -35,4 +35,8 @@ A one-command setup script comes in v1.
 - `docs/SAFETY.md` the no-delete rule in detail
 - `docs/TAKEOUT.md` Google Takeout format notes
 - `docs/ROADMAP.md` what is done and what is next
-- `AGENTS.md` rules for coding agents working on this repo
+- `AGENTS.md` rules for coding agents (Claude Code reads `CLAUDE.md`, Cursor reads `.cursor/rules/`, both point to it)
+- `docs/tasks/` the work queue, one file per task
+
+## Working with a coding agent
+Give the agent one task: "Read `AGENTS.md`, then do `docs/tasks/02-date-sort.md`." It must pass `scripts/check.sh` (Windows: `scripts\check.ps1`) and work on `dev`.
