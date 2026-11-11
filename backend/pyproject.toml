@@ -2,7 +2,7 @@
 name = "sortlens"
 version = "0.1.0"
 description = "Local-first, offline photo organizer: Google Takeout + laptop folders. Categorizes only, never deletes."
-readme = "../README.md"
+readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",
