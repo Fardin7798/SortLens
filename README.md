@@ -12,15 +12,9 @@ Windows / Linux / macOS, CPU only (built and tested for a 12th-gen i3 laptop, no
 
 ## Quick start (dev)
 ```bash
-# backend
 cd backend
 uv venv && uv pip install -e ".[dev]"
 uv run sortlens serve        # http://127.0.0.1:8765/api/health
-
-# frontend
-cd frontend
-npm install
-npm run dev                   # http://localhost:3000
 ```
 Import photos (read-only, safe to re-run; it resumes):
 ```bash

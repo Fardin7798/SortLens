@@ -2,7 +2,6 @@
 
 ## v0.1 (now): skeleton
 - [x] Repo layout, settings, safety gate + undo log, health API, tests, CI
-- [x] Next.js frontend skeleton
 
 ## v1
 - [x] Importers: Takeout (zip parts or extracted) + folder → MediaRecord in SQLite (read-only, resumable, CLI + /api/stats)
@@ -12,6 +11,8 @@
 - [ ] Live progress (SSE) + resumable batches
 - [ ] Review screen + approve/undo flow
 - [ ] One-command setup (Windows first)
+
+- [ ] Local UI (built last, after the backend is complete)
 
 ## Later
 Blur / screenshot / meme / document categories · offline natural-language search · GPS city groups · face groups · Takeout favorites view

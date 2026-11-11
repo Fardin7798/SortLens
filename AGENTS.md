@@ -30,12 +30,11 @@ If the task file is unclear or a hard rule would be broken, stop and ask. Do not
 - `backend/app/db` SQLite store (`store.py` owns the schema)
 - `backend/app/api` FastAPI routes + live progress (SSE)
 - `backend/app/cli.py` command line (`sortlens ...`)
-- `frontend/` Next.js local UI; `src/lib/api.ts` is the only place with the API base URL
+- No frontend yet: the UI is built last, after the backend is complete. Do not add one unless a task says so.
 - `docs/tasks/` one file per task, the work queue
 
 ## Checks (all in `scripts/check.sh`)
 - backend: `ruff check . && ruff format --check . && mypy app && pytest -q`
-- frontend: `npm run lint && npm run build`
 
 ## Code style
 - Python 3.12, type hints everywhere, small functions, no new heavy dependency without saying why in the PR.

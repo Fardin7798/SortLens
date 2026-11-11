@@ -1,7 +1,7 @@
 # Architecture
 
 ```
-Takeout zips / folder ──► importer ──► MediaRecord ──► pipeline steps ──► SQLite ──► API (+SSE) ──► Next.js UI
+Takeout zips / folder ──► importer ──► MediaRecord ──► pipeline steps ──► SQLite ──► API (+SSE) ──► local UI (built last)
                                                     date │ hash │ phash │ faces
 ```
 - **MediaRecord**: path, source (takeout|folder), size, taken_at + source of date, gps, takeout fields (title, people, favorited), hashes.
