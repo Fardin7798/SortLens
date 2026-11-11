@@ -5,7 +5,7 @@
 - [x] Next.js frontend skeleton
 
 ## v1
-- [ ] Importers: Takeout (zip parts or extracted) + folder → MediaRecord in SQLite
+- [x] Importers: Takeout (zip parts or extracted) + folder → MediaRecord in SQLite (read-only, resumable, CLI + /api/stats)
 - [ ] Date sort (Takeout > EXIF > filename > file time)
 - [ ] Exact + near duplicates
 - [ ] Solo category from one reference photo (CPU)

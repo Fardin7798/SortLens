@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.core.config import settings
+from app.db import store
 
 app = FastAPI(title="SortLens", version=__version__)
 app.add_middleware(
@@ -18,3 +19,12 @@ app.add_middleware(
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "version": __version__}
+
+
+@app.get("/api/stats")
+def get_stats() -> dict[str, int]:
+    con = store.connect(settings.db_path)
+    try:
+        return store.stats(con)
+    finally:
+        con.close()

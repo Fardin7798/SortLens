@@ -22,6 +22,12 @@ cd frontend
 npm install
 npm run dev                   # http://localhost:3000
 ```
+Import photos (read-only, safe to re-run; it resumes):
+```bash
+uv run sortlens import-takeout takeout-001.zip takeout-002.zip   # or an extracted Takeout folder
+uv run sortlens import-folder "D:/Photos"
+uv run sortlens stats
+```
 A one-command setup script comes in v1.
 
 ## Docs
