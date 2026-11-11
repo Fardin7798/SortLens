@@ -4,6 +4,7 @@
   sortlens import-takeout PATH [PATH...]  read Takeout zip parts or an extracted Takeout folder
   sortlens import-folder PATH             read a laptop folder (recursive)
   sortlens stats                          counts from the local database
+  sortlens people                         names tagged in Google Photos, with counts
 
 Imports only READ your files. Running an import again resumes and skips unchanged files.
 """
@@ -15,6 +16,7 @@ from pathlib import Path
 
 from app.core.config import settings
 from app.db import store
+from app.importers.base import AlbumRecord
 from app.importers.folder import scan_folder
 from app.importers.takeout import scan_takeout
 
@@ -37,6 +39,7 @@ def main(argv: list[str] | None = None) -> int:
     f = sub.add_parser("import-folder", help="read a laptop folder")
     f.add_argument("path", type=Path)
     sub.add_parser("stats", help="show counts")
+    sub.add_parser("people", help="names tagged in Google Photos, with counts")
     args = parser.parse_args(argv)
 
     if args.cmd == "serve":
@@ -49,13 +52,21 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "stats":
         print(json.dumps(store.stats(con), indent=2))
         return 0
+    if args.cmd == "people":
+        names = store.people(con)
+        if not names:
+            print("No tagged people found (tags come only from Takeout).")
+        for name, n in names:
+            print(f"{n:>7}  {name}")
+        return 0
 
     if args.cmd == "import-takeout":
         missing = [p for p in args.paths if not p.exists()]
         if missing:
             print(f"not found: {', '.join(map(str, missing))}", file=sys.stderr)
             return 2
-        recs = scan_takeout(args.paths)
+        albums: list[AlbumRecord] = []
+        recs = scan_takeout(args.paths, albums)
         first = args.paths[0].resolve()
         source, root = "takeout", str(first.parent if first.is_file() else first)
     else:
@@ -69,6 +80,8 @@ def main(argv: list[str] | None = None) -> int:
     counts = store.import_records(
         con, recs, source=source, root=root, batch_size=settings.batch_size, on_progress=_progress
     )
+    if args.cmd == "import-takeout":
+        counts["albums"] = store.save_albums(con, albums)
     print(f"\nDone: {json.dumps(counts)}")
     return 0
 

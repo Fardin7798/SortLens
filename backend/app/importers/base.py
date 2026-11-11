@@ -35,10 +35,41 @@ class MediaRecord:
     is_edited: bool = False  # Takeout "-edited" copy
     sidecar: str = ""  # rel_path of the matched Takeout JSON, "" when none
     taken_at: float | None = None  # epoch seconds UTC, only when a source gives it
-    taken_at_source: str = ""  # "takeout" here; later steps add "exif" | "filename" | "file"
-    lat: float | None = None
+    taken_at_source: str = (
+        ""  # "takeout" | "takeout_live"; later steps add "exif" | "filename" | "file"
+    )
+    lat: float | None = None  # best location: Google's geoData, else the camera's geoDataExif
     lon: float | None = None
+    location_source: str = ""  # "google" | "camera" | ""
+    gps_lat: float | None = None  # camera GPS exactly as geoDataExif has it (None when 0,0/missing)
+    gps_lon: float | None = None
     title: str = ""
     description: str = ""
     people: list[str] = field(default_factory=list)
     favorited: bool = False
+    # Takeout-only facts (empty/False/None for folders)
+    uploaded_at: float | None = None  # creationTime: upload time, NOT the capture date
+    archived: bool = False
+    trashed: bool = False  # flag in the sidecar, or file sits in the Takeout trash folder
+    image_views: int | None = None
+    origin: str = ""  # googlePhotosOrigin key as Google writes it, e.g. "mobileUpload"
+    device_type: str = ""  # googlePhotosOrigin.mobileUpload.deviceType, e.g. "ANDROID_PHONE"
+    partner_shared: bool = False  # googlePhotosOrigin.fromPartnerSharing
+    special_folder: str = ""  # "trash" | "failed_videos" | "untitled_album" | ""
+    album_copy_of: str = ""  # rel_path of the same photo in a "Photos from YYYY" folder
+    live_photo_of: str = ""  # for a live/motion video half: rel_path of its still photo
+    sidecar_json: str = ""  # the matched sidecar exactly as read, so nothing is lost
+
+
+@dataclass
+class AlbumRecord:
+    """One Takeout album folder, from its metadata.json (any language)."""
+
+    root: str
+    folder: str  # album folder rel_path, "/"-separated
+    title: str = ""
+    description: str = ""
+    access: str = ""
+    date: float | None = None
+    lat: float | None = None
+    lon: float | None = None

@@ -2,13 +2,14 @@
 
 One file per task, numbered in build order. A coding agent gets exactly one task:
 
-> Read `AGENTS.md`, then do `docs/tasks/02-date-sort.md`. Stop when its "Done when" list is all true.
+> Read `AGENTS.md`, then do `docs/tasks/03-date-sort.md`. Stop when its "Done when" list is all true.
 
 ## Status
 | # | Task | Status |
 |---|------|--------|
 | 01 | Importers (Takeout + folder → SQLite) | done |
-| 02 | [Date sort](02-date-sort.md) | todo |
+| 02 | [Full Takeout metadata](02-takeout-metadata.md) | done |
+| 03 | [Date sort](03-date-sort.md) | todo |
 
 Later tasks (duplicates, solo category, live progress, review + undo, Windows setup) get a file when their turn comes, so they follow what was really built.
 
