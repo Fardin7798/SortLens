@@ -1,0 +1,54 @@
+[project]
+name = "sortlens"
+version = "0.1.0"
+description = "Local-first, offline photo organizer: Google Takeout + laptop folders. Categorizes only, never deletes."
+readme = "../README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "pydantic>=2.8.0",
+    "pydantic-settings>=2.4.0",
+    "pillow>=10.4.0",
+    "pillow-heif>=0.18.0",
+    "imagehash>=4.3.1",
+]
+
+[project.optional-dependencies]
+faces = [
+    # CPU-only face detection + embeddings; chosen in v1 face step
+]
+dev = [
+    "pytest>=8.2.0",
+    "httpx>=0.27.0",
+    "ruff>=0.5.0",
+    "mypy>=1.10.0",
+]
+
+[project.scripts]
+sortlens = "app.cli:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+ignore = ["E501", "B008"]
+
+[tool.mypy]
+python_version = "3.12"
+explicit_package_bases = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
