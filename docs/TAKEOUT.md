@@ -11,7 +11,7 @@
 ## What SortLens keeps from each sidecar (importer v2)
 | Field | Column | Notes |
 |---|---|---|
-| `photoTakenTime` | `taken_at`, `taken_at_source=takeout` | 0 or missing = no date |
+| `photoTakenTime` | `taken_at`, `taken_at_source=takeout` | 0 or missing = no date; `sortlens dates` then tries EXIF and the file name, never the zip time (that is the export date) |
 | `creationTime` | `uploaded_at` | upload time, never used as the capture date |
 | `geoData` | `lat`, `lon`, `location_source=google` | may be estimated or user-added |
 | `geoDataExif` | `gps_lat`, `gps_lon` (and `lat/lon` with `camera` when `geoData` is empty) | camera GPS |

@@ -15,3 +15,9 @@ Takeout zips / folder ──► importer ──► MediaRecord ──► pipelin
 - `app/pipeline/faces.py`: OpenCV YuNet (detect) + SFace (128-d embedding), CPU, photos shrunk to 1280 px. Results in `faces` (box 0..1, score, float32 embedding) and `face_scan` (one row per photo: engine, size, mtime, ok/error). A photo is scanned again only if the engine or the file changes, so runs resume.
 - `app/pipeline/solo.py`: reference photo must have exactly one face. Candidates = photos tagged with the name in Takeout, plus all other photos unless `--tagged-only` (trashed, album copies, live-photo videos and failed videos are skipped). Cosine ≥ 0.363 = same person. Buckets: `solo` (one face, matches), `group` (several faces, one matches), `check` (tagged but not confirmed, with the reason). Saved in `solo_runs` / `solo_items`. No file action.
 - Models live in `<data_dir>/models`, never in the repo.
+
+## Dates
+- `app/pipeline/dates.py` (`sortlens dates`): one best `taken_at` per row with `taken_at_source` = `takeout` | `takeout_live` | `exif` | `filename` | `filename_day` (WhatsApp, day only) | `file`. Takeout dates are never overwritten.
+- `taken_at_offset` (minutes) only when EXIF states it; otherwise the time is stored as if UTC and means "local time, zone unknown". No zone guessing.
+- File time is used only for laptop folders. For Takeout, zip/extract times are the export date, so those rows stay without a date.
+- Resume marker `dates_done_at`; a re-imported (changed) file is cleared and done again. Zip parts stay open across a run (`core/media_io.MediaReader`).

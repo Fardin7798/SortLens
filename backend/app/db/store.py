@@ -91,6 +91,8 @@ ADDED_COLUMNS = {
     "live_photo_of": "TEXT NOT NULL DEFAULT ''",
     "sidecar_json": "TEXT NOT NULL DEFAULT ''",
     "importer_version": "INTEGER NOT NULL DEFAULT 1",
+    "taken_at_offset": "INTEGER",  # minutes from UTC, only when the file states it
+    "dates_done_at": "REAL",  # set by pipeline/dates.py; NULL = still to do
 }
 
 
@@ -156,7 +158,7 @@ def import_records(
                 con.execute(
                     f"INSERT INTO media ({','.join(COLS)}, imported_at) VALUES ({placeholders}) "
                     f"ON CONFLICT(root, container, rel_path) DO UPDATE SET {updates}, "
-                    "imported_at=excluded.imported_at",
+                    "imported_at=excluded.imported_at, taken_at_offset=NULL, dates_done_at=NULL",
                     (*_row(rec), time.time()),
                 )
                 counts["updated" if old else "added"] += 1
@@ -217,6 +219,14 @@ def stats(con: sqlite3.Connection) -> dict[str, int]:
         "folder": q("SELECT COUNT(*) FROM media WHERE source='folder'"),
         "with_date": q("SELECT COUNT(*) FROM media WHERE taken_at IS NOT NULL"),
         "without_date": q("SELECT COUNT(*) FROM media WHERE taken_at IS NULL"),
+        "date_takeout": q(
+            "SELECT COUNT(*) FROM media WHERE taken_at_source IN ('takeout','takeout_live')"
+        ),
+        "date_exif": q("SELECT COUNT(*) FROM media WHERE taken_at_source='exif'"),
+        "date_filename": q("SELECT COUNT(*) FROM media WHERE taken_at_source LIKE 'filename%'"),
+        "date_file": q("SELECT COUNT(*) FROM media WHERE taken_at_source='file'"),
+        "date_missing": q("SELECT COUNT(*) FROM media WHERE taken_at IS NULL"),
+        "dates_todo": q("SELECT COUNT(*) FROM media WHERE dates_done_at IS NULL"),
         "with_location": q("SELECT COUNT(*) FROM media WHERE lat IS NOT NULL"),
         "takeout_without_sidecar": q(
             "SELECT COUNT(*) FROM media WHERE source='takeout' AND sidecar=''"

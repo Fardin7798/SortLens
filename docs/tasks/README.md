@@ -10,7 +10,7 @@ One file per task, numbered in build order. A coding agent gets exactly one task
 | 01 | Importers (Takeout + folder → SQLite) | done |
 | 02 | [Full Takeout metadata](02-takeout-metadata.md) | done |
 | 03 | [Solo list](03-solo-list.md) | done |
-| 04 | [Date sort](04-date-sort.md) | todo |
+| 04 | [Date sort](04-date-sort.md) | done |
 
 Later tasks (duplicates, solo category, live progress, review + undo, Windows setup) get a file when their turn comes, so they follow what was really built.
 

@@ -4,16 +4,18 @@
   sortlens import-takeout PATH [PATH...]  read Takeout zip parts or an extracted Takeout folder
   sortlens import-folder PATH             read a laptop folder (recursive)
   sortlens stats                          counts from the local database
+  sortlens dates                          best "taken at" date for every file (resumes)
   sortlens people                         names tagged in Google Photos, with counts
   sortlens models download                fetch the two small CPU face models (once, ~39 MB)
   sortlens solo NAME --photo REF.jpg      list photos where NAME is alone (database only)
   sortlens solo-show RUN [--bucket B]     show a solo list: solo | group | check
 
-Imports and solo only READ your files. Running an import again resumes and skips unchanged files.
+Imports, dates and solo only READ your files. Running an import again resumes and skips unchanged files.
 """
 
 import argparse
 import json
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -23,6 +25,7 @@ from app.importers.base import AlbumRecord
 from app.importers.folder import scan_folder
 from app.importers.takeout import scan_takeout
 from app.pipeline import solo
+from app.pipeline.dates import run_dates
 from app.pipeline.faces import SAME_PERSON, download_models
 
 
@@ -35,7 +38,7 @@ def _progress(c: dict[str, int]) -> None:
     )
 
 
-def _solo(con: object, args: argparse.Namespace) -> int:
+def _solo(con: sqlite3.Connection, args: argparse.Namespace) -> int:
     from app.pipeline.faces import OpenCVEngine
 
     if not args.photo.is_file():
@@ -55,7 +58,7 @@ def _solo(con: object, args: argparse.Namespace) -> int:
     print("Finding faces. Your photos are only read; nothing is copied, moved or deleted.")
     try:
         res = solo.run(
-            con,  # type: ignore[arg-type]
+            con,
             engine,
             name=args.name,
             ref_photo=args.photo.read_bytes(),
@@ -81,6 +84,7 @@ def main(argv: list[str] | None = None) -> int:
     f = sub.add_parser("import-folder", help="read a laptop folder")
     f.add_argument("path", type=Path)
     sub.add_parser("stats", help="show counts")
+    sub.add_parser("dates", help="best taken-at date for every file (resumes)")
     sub.add_parser("people", help="names tagged in Google Photos, with counts")
     md = sub.add_parser("models", help="face models")
     md.add_argument("action", choices=["download"])
@@ -116,6 +120,15 @@ def main(argv: list[str] | None = None) -> int:
             sim = "  -  " if r["similarity"] is None else f"{r['similarity']:.2f}"
             where = f"{r['container']}!{r['rel_path']}" if r["container"] else r["rel_path"]
             print(f"{r['bucket']:<6} {sim}  faces={r['n_faces']}  {where}  {r['reason']}")
+        return 0
+    if args.cmd == "dates":
+        print("Reading dates. Your files are only read, never changed.")
+        c = run_dates(
+            con,
+            batch_size=settings.batch_size,
+            on_progress=lambda c: print(f"\r  {c['done']}/{c['todo']}", end="", flush=True),
+        )
+        print(f"\nDone: {json.dumps(c)}")
         return 0
     if args.cmd == "stats":
         print(json.dumps(store.stats(con), indent=2))
