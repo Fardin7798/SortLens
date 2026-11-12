@@ -7,12 +7,18 @@
   sortlens dates                          best "taken at" date for every file (resumes)
   sortlens dupes [--no-near]              duplicate lists: exact, near, album copies, -edited
   sortlens dupes-show RUN [--kind K]      show them (keep first; nothing is deleted)
+  sortlens plan-trash-dupes RUN [--kinds exact,near]   plan: duplicate extras -> SortLens Trash
+  sortlens plan-move-solo RUN --to FOLDER              plan: a solo list -> that folder
+  sortlens plan-show PLAN                 the full list + its confirm code
+  sortlens apply PLAN --code CODE         move the files (only with the code from plan-show)
+  sortlens undo PLAN --code CODE          move them all back
   sortlens people                         names tagged in Google Photos, with counts
   sortlens models download                fetch the two small CPU face models (once, ~39 MB)
   sortlens solo NAME --photo REF.jpg      list photos where NAME is alone (database only)
   sortlens solo-show RUN [--bucket B]     show a solo list: solo | group | check
 
-Imports, dates, dupes and solo only READ your files. Running an import again resumes and skips unchanged files.
+Imports, dates, dupes and solo only READ your files. Files move only via apply, never get
+deleted ('delete' = the location's SortLens Trash folder), and every move is in the undo log. Running an import again resumes and skips unchanged files.
 """
 
 import argparse
@@ -21,6 +27,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
+from app.core import plans
 from app.core.config import settings
 from app.db import store
 from app.pipeline import dupes, solo, steps
@@ -90,6 +97,19 @@ def main(argv: list[str] | None = None) -> int:
     ds = sub.add_parser("dupes-show", help="show duplicate groups")
     ds.add_argument("run", type=int)
     ds.add_argument("--kind", choices=["exact", "near", "album_copy", "edited"])
+    pt = sub.add_parser("plan-trash-dupes", help="plan: duplicate extras -> SortLens Trash")
+    pt.add_argument("run", type=int)
+    pt.add_argument("--kinds", default="exact", help="comma list: exact,near,album_copy")
+    pm = sub.add_parser("plan-move-solo", help="plan: move a solo list into a folder")
+    pm.add_argument("run", type=int)
+    pm.add_argument("--to", type=Path, required=True, help="folder inside the same location")
+    pm.add_argument("--buckets", default="solo", help="comma list: solo,group,check")
+    ps = sub.add_parser("plan-show", help="show a plan's full list and confirm code")
+    ps.add_argument("plan", type=int)
+    for name in ("apply", "undo"):
+        a = sub.add_parser(name, help=f"{name} a plan (needs its confirm code)")
+        a.add_argument("plan", type=int)
+        a.add_argument("--code", required=True)
     sub.add_parser("people", help="names tagged in Google Photos, with counts")
     md = sub.add_parser("models", help="face models")
     md.add_argument("action", choices=["download"])
@@ -161,6 +181,45 @@ def main(argv: list[str] | None = None) -> int:
                 where = f"{f['container']}!{f['rel_path']}" if f["container"] else f["rel_path"]
                 d = "" if f["distance"] is None else f"  ({f['distance']} bits)"
                 print(f"  {f['role']:<5} {f['size']:>10}  {where}{d}")
+        return 0
+    if args.cmd in ("plan-trash-dupes", "plan-move-solo"):
+        try:
+            if args.cmd == "plan-trash-dupes":
+                pid = plans.from_dupes(con, args.run, kinds=tuple(args.kinds.split(",")))
+            else:
+                pid = plans.from_solo(con, args.run, dest=args.to,
+                                      buckets=tuple(args.buckets.split(",")))  # fmt: skip
+        except plans.PlanError as e:
+            print(e, file=sys.stderr)
+            return 2
+        print(f"Plan {pid} made. Nothing has moved. See it: sortlens plan-show {pid}")
+        return 0
+    if args.cmd == "plan-show":
+        plan = plans.get(con, args.plan)
+        if not plan:
+            print("no such plan", file=sys.stderr)
+            return 2
+        print(f"Plan {plan['id']} ({plan['kind']}, {plan['status']}) {plan['title']}")
+        for it in plan["items"]:
+            where = it["src"] or f"{it['container']}!{it['rel_path']}"
+            to = f"  ->  {it['dst']}" if it["dst"] else ""
+            note = f"   [{it['note']}]" if it["note"] else ""
+            print(f"  {it['action']:<5} {it['status']:<8} {where}{to}{note}")
+        print(f"Counts: {json.dumps(plan['counts'])}")
+        if plan["status"] in ("ready", "partial"):
+            print(f"To do it: sortlens apply {plan['id']} --code {plan['code']}")
+        if plan["status"] in ("applied", "partial"):
+            print(f"To undo: sortlens undo {plan['id']} --code {plan['code']}")
+        return 0
+    if args.cmd in ("apply", "undo"):
+        fn = plans.apply if args.cmd == "apply" else plans.undo
+        try:
+            c = fn(con, args.plan, args.code, log_path=settings.undo_log_path,
+                   batch_size=settings.batch_size)  # fmt: skip
+        except plans.PlanError as e:
+            print(e, file=sys.stderr)
+            return 2
+        print(f"Done: {json.dumps(c)}  (undo log: {settings.undo_log_path})")
         return 0
     if args.cmd == "stats":
         print(json.dumps(store.stats(con), indent=2))

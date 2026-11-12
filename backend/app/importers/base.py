@@ -73,3 +73,7 @@ class AlbumRecord:
     date: float | None = None
     lat: float | None = None
     lon: float | None = None
+
+
+# Folder SortLens makes inside a location for "deleted" files. Importers never read it.
+TRASH_DIR = "SortLens Trash"

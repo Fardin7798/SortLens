@@ -38,6 +38,15 @@ POST /api/jobs   {"kind": "import_takeout", "params": {"paths": ["D:/takeout-001
 GET  /api/jobs/{id}/events   live progress (Server-Sent Events), ends with an `end` event
 POST /api/jobs/{id}/stop     stops at the next batch; run again to resume
 ```
+Review (the only way a file moves; nothing is ever deleted):
+```bash
+uv run sortlens plan-trash-dupes 1          # duplicate extras -> SortLens Trash (a plan, nothing moves)
+uv run sortlens plan-move-solo 2 --to "Fardin akela"
+uv run sortlens plan-show 3                 # full list + confirm code
+uv run sortlens apply 3 --code <code>       # then, if needed: sortlens undo 3 --code <code>
+```
+API: `POST /api/plans`, `GET /api/plans/{id}`, `POST /api/plans/{id}/apply|undo` with `{"code": ...}`.
+
 A one-command setup script comes in v1.
 
 ## Docs

@@ -70,7 +70,10 @@ CREATE TABLE IF NOT EXISTS dup_items (
 );
 """
 
-SKIP = "trashed=0 AND special_folder!='failed_videos' AND live_photo_of=''"
+SKIP = (
+    "trashed=0 AND in_trash=0 AND user_mark!='trash' AND special_folder!='failed_videos' "
+    "AND live_photo_of=''"
+)
 
 
 @dataclass

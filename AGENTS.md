@@ -6,8 +6,8 @@ Claude Code, Cursor, Codex, Copilot and humans all follow this one file.
 Local-first, offline photo organizer. Sources: Google Takeout export (main focus) and plain laptop folders, through ONE pipeline.
 
 ## Hard rules (never break)
-1. Never delete, move, rename or modify a user's photo, zip or JSON file. Scanning is read-only.
-2. Every move/delete goes through `backend/app/core/safety.py`: needs an explicit user approval id, writes the undo log first. Deletes go to a SortLens trash first.
+1. Never delete a file. There is no delete code in SortLens (a test checks). "Delete" = move into the location's `SortLens Trash`. Scanning is read-only; zips are never changed.
+2. A file moves only through an approved plan (`backend/app/core/plans.py`, confirm code) and `backend/app/core/safety.py` `move_file`, which writes the undo log first. See `docs/SAFETY.md`.
 3. Fully offline at runtime. No cloud APIs, no telemetry.
 4. Must run on a low-end CPU laptop (i3, 8 GB, no GPU, Windows 11): small batches, resumable, no GPU-only libs.
 5. Real data only. Missing date/location stays missing and is shown as missing. Never invent a value.

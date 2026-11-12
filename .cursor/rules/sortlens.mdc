@@ -3,7 +3,7 @@ description: SortLens project rules (always on)
 alwaysApply: true
 ---
 Read and follow `AGENTS.md` at the repo root before any change. Short version:
-- Never delete, move, rename or modify user photos, zips or JSON. Read-only scanning.
-- Any move/delete only through `backend/app/core/safety.py` with an approval id and undo log.
+- Never delete. No delete code at all; "delete" = move into the location's `SortLens Trash`. Scanning is read-only.
+- A file moves only via an approved plan (`core/plans.py`, confirm code) and `core/safety.py` `move_file` (undo log first).
 - Offline, CPU-only, resumable batches. Real data only; missing stays missing.
 - Do only the task in `docs/tasks/`; run `scripts/check.sh` until it passes; work on `dev`, never push to `main`.

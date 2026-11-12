@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.api.jobs import router as jobs_router
+from app.api.plans import router as plans_router
 from app.core.config import settings
 from app.db import store
 
@@ -16,6 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(jobs_router)
+app.include_router(plans_router)
 
 
 @app.get("/api/health")

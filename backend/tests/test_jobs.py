@@ -120,3 +120,37 @@ def test_dupes_job(client: TestClient, tmp_path: Path) -> None:
     )
     j = jobs.manager().wait(client.post("/api/jobs", json={"kind": "dupes"}).json()["id"])
     assert j and j.status == "done" and j.result["exact"] == 1
+
+
+def test_plan_api_needs_code(client: TestClient, tmp_path: Path) -> None:
+    d = tmp_path / "p"
+    d.mkdir()
+    (d / "a.mp4").write_bytes(b"same")
+    (d / "b.mp4").write_bytes(b"same")
+    m = jobs.manager()
+    m.wait(
+        client.post("/api/jobs", json={"kind": "import_folder", "params": {"path": str(d)}}).json()[
+            "id"
+        ]
+    )
+    run = m.wait(client.post("/api/jobs", json={"kind": "dupes"}).json()["id"]).result["run_id"]  # type: ignore[union-attr]
+    r = client.post("/api/plans", json={"kind": "trash", "from_dupes": {"run": run}})
+    assert r.status_code == 201
+    plan = r.json()
+    assert len(plan["items"]) == 1 and (d / "b.mp4").exists()
+    assert client.post(f"/api/plans/{plan['id']}/apply", json={"code": "nope"}).status_code == 422
+    assert (d / "b.mp4").exists()
+    j = client.post(f"/api/plans/{plan['id']}/apply", json={"code": plan["code"]})
+    assert j.status_code == 202
+    done = m.wait(j.json()["id"])
+    assert done and done.status == "done" and done.result["moved"] == 1
+    assert (d / "SortLens Trash" / "b.mp4").exists() and not (d / "b.mp4").exists()
+    u = m.wait(
+        client.post(f"/api/plans/{plan['id']}/undo", json={"code": plan["code"]}).json()["id"]
+    )
+    assert u and u.result["restored"] == 1 and (d / "b.mp4").exists()
+    assert client.get(f"/api/plans/{plan['id']}").json()["status"] == "undone"
+    assert (
+        client.post("/api/plans", json={"kind": "move", "from_dupes": {"run": run}}).status_code
+        == 422
+    )

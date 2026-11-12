@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from app.core import plans
 from app.core.config import settings
 from app.db import store
 from app.pipeline import steps
@@ -96,10 +97,30 @@ def _step(kind: str, p: dict[str, Any]) -> Callable[..., dict[str, Any]]:
             con, name=name, photo=Path(photo), models_dir=settings.models_dir,
             tagged_only=bool(p.get("tagged_only")), threshold=thr,
             batch_size=bs, on_progress=on_progress)  # fmt: skip
+    if kind in ("apply_plan", "undo_plan"):
+        pid, code = p.get("plan"), str(p.get("code") or "")
+        if not isinstance(pid, int) or not code:
+            raise ValueError(
+                "plan (id) and code (the confirm code shown with the list) are required"
+            )
+        fn = plans.apply if kind == "apply_plan" else plans.undo
+        con = store.connect(settings.db_path)
+        try:  # wrong code or wrong state: refuse before any job starts
+            plans.check(con, pid, code, for_undo=kind == "undo_plan")
+        except plans.PlanError as e:
+            raise ValueError(str(e)) from e
+        finally:
+            con.close()
+
+        def check_then_run(con: sqlite3.Connection, on_progress: Any) -> dict[str, Any]:
+            return fn(con, pid, code, log_path=settings.undo_log_path, batch_size=bs,
+                      on_progress=on_progress)  # fmt: skip
+
+        return check_then_run
     raise ValueError(f"unknown job kind: {kind}")
 
 
-KINDS = ("import_takeout", "import_folder", "dates", "dupes", "solo")
+KINDS = ("import_takeout", "import_folder", "dates", "dupes", "solo", "apply_plan", "undo_plan")
 
 
 class JobManager:

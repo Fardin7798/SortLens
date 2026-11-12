@@ -33,3 +33,10 @@ Takeout zips / folder ──► importer ──► MediaRecord ──► pipelin
 - `app/pipeline/steps.py`: the long steps (import Takeout, import folder, dates, dupes, solo) as plain functions; the CLI and the API both call them.
 - `app/core/jobs.py`: one job at a time (a CPU laptop + SQLite), in a worker thread with its own connection. Progress from each batch goes to memory and to the `jobs` table about once a second. Stop is cooperative (next batch boundary); committed work stays and the step resumes when run again. A job left `running` when the app closed is marked `stopped` on next start.
 - `app/api/jobs.py`: `POST /api/jobs`, `GET /api/jobs`, `GET /api/jobs/{id}`, `POST /api/jobs/{id}/stop`, `GET /api/jobs/{id}/events` (SSE: `progress` events, then one `end` with the final job; keep-alive comment every 15 s). 409 if a job is already running, 422 for bad input.
+
+## Review and undo
+- `app/core/plans.py`: `plans` + `plan_items`. A plan is built from a duplicate run (extras -> trash), a solo run (bucket -> a folder in the same location) or a list of ids. Building changes nothing. Each plan has a confirm code (hash of its items); `apply` and `undo` need it.
+- Items: `move`, `mark` (file inside a Takeout zip), `skip` (with the reason: outside the location, already there, already in trash). A Takeout sidecar JSON moves with its photo unless another file still uses it.
+- `apply` checks size + mtime first, moves through `core/safety.move_file`, updates `media.rel_path` / `in_trash` / `user_mark`. Restartable: done items stay done, and a move that finished just before a stop is found in the undo log.
+- Importers skip `SortLens Trash`; dupes and solo skip trashed or trash-marked rows.
+- API `app/api/plans.py`; apply/undo run as jobs (`apply_plan`, `undo_plan`) with live progress.

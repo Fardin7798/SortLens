@@ -92,7 +92,9 @@ ADDED_COLUMNS = {
     "sidecar_json": "TEXT NOT NULL DEFAULT ''",
     "importer_version": "INTEGER NOT NULL DEFAULT 1",
     "taken_at_offset": "INTEGER",  # minutes from UTC, only when the file states it
-    "dates_done_at": "REAL",  # set by pipeline/dates.py; NULL = still to do
+    "dates_done_at": "REAL",
+    "in_trash": "INTEGER NOT NULL DEFAULT 0",  # moved into its location's "SortLens Trash"
+    "user_mark": "TEXT NOT NULL DEFAULT ''",  # zip files can't move: 'trash' / 'move' mark only  # set by pipeline/dates.py; NULL = still to do
 }
 
 
@@ -247,4 +249,6 @@ def stats(con: sqlite3.Connection) -> dict[str, int]:
             "SELECT COUNT(DISTINCT j.value) FROM media, json_each(media.people) AS j"
         ),
         "albums": q("SELECT COUNT(*) FROM albums"),
+        "in_sortlens_trash": q("SELECT COUNT(*) FROM media WHERE in_trash=1"),
+        "marked_in_zip": q("SELECT COUNT(*) FROM media WHERE user_mark!=''"),
     }

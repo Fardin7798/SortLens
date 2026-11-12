@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS solo_items (
 """
 
 BASE = (
-    "kind='photo' AND trashed=0 AND album_copy_of='' AND live_photo_of='' "
+    "kind='photo' AND trashed=0 AND in_trash=0 AND user_mark!='trash' AND album_copy_of='' AND live_photo_of='' "
     "AND special_folder!='failed_videos'"
 )
 TAGGED = "EXISTS (SELECT 1 FROM json_each(media.people) j WHERE lower(j.value)=lower(?))"
