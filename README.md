@@ -22,6 +22,13 @@ uv run sortlens import-takeout takeout-001.zip takeout-002.zip   # or an extract
 uv run sortlens import-folder "D:/Photos"
 uv run sortlens stats
 ```
+Solo list: photos where one person is alone (reads only; nothing is moved):
+```bash
+uv pip install -e ".[faces]"            # OpenCV, CPU only
+uv run sortlens models download         # two small ONNX face models, once (~39 MB, SHA-256 checked)
+uv run sortlens solo "Fardin" --photo me.jpg      # add --tagged-only to check only Takeout tags
+uv run sortlens solo-show 1 --bucket solo         # solo | group | check
+```
 A one-command setup script comes in v1.
 
 ## Docs
@@ -33,4 +40,4 @@ A one-command setup script comes in v1.
 - `docs/tasks/` the work queue, one file per task
 
 ## Working with a coding agent
-Give the agent one task: "Read `AGENTS.md`, then do `docs/tasks/03-date-sort.md`." It must pass `scripts/check.sh` (Windows: `scripts\check.ps1`) and work on `dev`.
+Give the agent one task: "Read `AGENTS.md`, then do `docs/tasks/04-date-sort.md`." It must pass `scripts/check.sh` (Windows: `scripts\check.ps1`) and work on `dev`.

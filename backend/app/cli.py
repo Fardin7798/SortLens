@@ -5,8 +5,11 @@
   sortlens import-folder PATH             read a laptop folder (recursive)
   sortlens stats                          counts from the local database
   sortlens people                         names tagged in Google Photos, with counts
+  sortlens models download                fetch the two small CPU face models (once, ~39 MB)
+  sortlens solo NAME --photo REF.jpg      list photos where NAME is alone (database only)
+  sortlens solo-show RUN [--bucket B]     show a solo list: solo | group | check
 
-Imports only READ your files. Running an import again resumes and skips unchanged files.
+Imports and solo only READ your files. Running an import again resumes and skips unchanged files.
 """
 
 import argparse
@@ -19,6 +22,8 @@ from app.db import store
 from app.importers.base import AlbumRecord
 from app.importers.folder import scan_folder
 from app.importers.takeout import scan_takeout
+from app.pipeline import solo
+from app.pipeline.faces import SAME_PERSON, download_models
 
 
 def _progress(c: dict[str, int]) -> None:
@@ -28,6 +33,43 @@ def _progress(c: dict[str, int]) -> None:
         end="",
         flush=True,
     )
+
+
+def _solo(con: object, args: argparse.Namespace) -> int:
+    from app.pipeline.faces import OpenCVEngine
+
+    if not args.photo.is_file():
+        print(f"not found: {args.photo}", file=sys.stderr)
+        return 2
+    try:
+        engine = OpenCVEngine(settings.models_dir)
+    except (ImportError, FileNotFoundError) as e:
+        print(f"{e}\n(install: pip install 'sortlens[faces]'; then: sortlens models download)",
+              file=sys.stderr)  # fmt: skip
+        return 2
+
+    def prog(c: dict[str, int]) -> None:
+        print(f"\r  faces: {c['scanned'] + c['skipped']}/{c['todo']}  errors {c['errors']}",
+              end="", flush=True)  # fmt: skip
+
+    print("Finding faces. Your photos are only read; nothing is copied, moved or deleted.")
+    try:
+        res = solo.run(
+            con,  # type: ignore[arg-type]
+            engine,
+            name=args.name,
+            ref_photo=args.photo.read_bytes(),
+            threshold=args.threshold or SAME_PERSON,
+            tagged_only=args.tagged_only,
+            batch_size=settings.batch_size,
+            on_progress=prog,
+        )
+    except solo.ReferenceError_ as e:
+        print(f"\n{e}. Use a clear photo where only {args.name} is visible.", file=sys.stderr)
+        return 2
+    print(f"\nList {res.run_id}: {json.dumps(res.counts)}")
+    print(f"See it: sortlens solo-show {res.run_id} --bucket solo")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -40,6 +82,16 @@ def main(argv: list[str] | None = None) -> int:
     f.add_argument("path", type=Path)
     sub.add_parser("stats", help="show counts")
     sub.add_parser("people", help="names tagged in Google Photos, with counts")
+    md = sub.add_parser("models", help="face models")
+    md.add_argument("action", choices=["download"])
+    so = sub.add_parser("solo", help="photos where one person is alone (lists only)")
+    so.add_argument("name")
+    so.add_argument("--photo", type=Path, required=True, help="clear photo with only that face")
+    so.add_argument("--tagged-only", action="store_true", help="skip untagged photos (faster)")
+    so.add_argument("--threshold", type=float, default=None)
+    ss = sub.add_parser("solo-show", help="show a solo list")
+    ss.add_argument("run", type=int)
+    ss.add_argument("--bucket", choices=["solo", "group", "check"])
     args = parser.parse_args(argv)
 
     if args.cmd == "serve":
@@ -48,7 +100,23 @@ def main(argv: list[str] | None = None) -> int:
         uvicorn.run("app.main:app", host=settings.host, port=settings.port)
         return 0
 
+    if args.cmd == "models":
+        for p in download_models(settings.models_dir):
+            print(f"ok  {p}")
+        return 0
+
     con = store.connect(settings.db_path)
+    if args.cmd == "solo":
+        return _solo(con, args)
+    if args.cmd == "solo-show":
+        rows = solo.items(con, args.run, args.bucket)
+        if not rows:
+            print("nothing in this list")
+        for r in rows:
+            sim = "  -  " if r["similarity"] is None else f"{r['similarity']:.2f}"
+            where = f"{r['container']}!{r['rel_path']}" if r["container"] else r["rel_path"]
+            print(f"{r['bucket']:<6} {sim}  faces={r['n_faces']}  {where}  {r['reason']}")
+        return 0
     if args.cmd == "stats":
         print(json.dumps(store.stats(con), indent=2))
         return 0

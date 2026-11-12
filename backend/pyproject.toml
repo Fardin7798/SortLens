@@ -16,7 +16,9 @@ dependencies = [
 
 [project.optional-dependencies]
 faces = [
-    # CPU-only face detection + embeddings; chosen in v1 face step
+    # CPU-only face detection (YuNet) + embeddings (SFace) through OpenCV
+    "opencv-python-headless>=4.9",
+    "numpy>=1.26",
 ]
 dev = [
     "pytest>=8.2.0",

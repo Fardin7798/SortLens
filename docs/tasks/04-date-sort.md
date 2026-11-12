@@ -1,4 +1,4 @@
-# Task 03: Date sort
+# Task 04: Date sort
 Status: todo
 Roadmap line: `Date sort (Takeout > EXIF > filename > file time)`
 

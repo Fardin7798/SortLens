@@ -19,6 +19,10 @@ class Settings(BaseSettings):
         return self.data_dir / "sortlens.db"
 
     @property
+    def models_dir(self) -> Path:
+        return self.data_dir / "models"
+
+    @property
     def undo_log_path(self) -> Path:
         return self.data_dir / "undo_log.jsonl"
 
