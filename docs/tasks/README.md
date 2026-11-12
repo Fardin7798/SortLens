@@ -2,7 +2,7 @@
 
 One file per task, numbered in build order. A coding agent gets exactly one task:
 
-> Read `AGENTS.md`, then do `docs/tasks/04-date-sort.md`. Stop when its "Done when" list is all true.
+> Read `AGENTS.md`, then do `docs/tasks/NN-name.md`. Stop when its "Done when" list is all true.
 
 ## Status
 | # | Task | Status |
@@ -11,8 +11,9 @@ One file per task, numbered in build order. A coding agent gets exactly one task
 | 02 | [Full Takeout metadata](02-takeout-metadata.md) | done |
 | 03 | [Solo list](03-solo-list.md) | done |
 | 04 | [Date sort](04-date-sort.md) | done |
+| 05 | [Duplicates](05-duplicates.md) | done |
 
-Later tasks (duplicates, solo category, live progress, review + undo, Windows setup) get a file when their turn comes, so they follow what was really built.
+Later tasks (live progress, review + undo, Windows setup) get a file when their turn comes, so they follow what was really built.
 
 ## Template for a new task
 ```markdown

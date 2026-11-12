@@ -21,6 +21,7 @@ Import photos (read-only, safe to re-run; it resumes):
 uv run sortlens import-takeout takeout-001.zip takeout-002.zip   # or an extracted Takeout folder
 uv run sortlens import-folder "D:/Photos"
 uv run sortlens stats
+uv run sortlens dupes     # duplicate lists, then: sortlens dupes-show 1
 uv run sortlens dates     # best taken-at date per file: Takeout > EXIF > file name > file time
 ```
 Solo list: photos where one person is alone (reads only; nothing is moved):

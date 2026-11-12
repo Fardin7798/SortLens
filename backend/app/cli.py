@@ -5,12 +5,14 @@
   sortlens import-folder PATH             read a laptop folder (recursive)
   sortlens stats                          counts from the local database
   sortlens dates                          best "taken at" date for every file (resumes)
+  sortlens dupes [--no-near]              duplicate lists: exact, near, album copies, -edited
+  sortlens dupes-show RUN [--kind K]      show them (keep first; nothing is deleted)
   sortlens people                         names tagged in Google Photos, with counts
   sortlens models download                fetch the two small CPU face models (once, ~39 MB)
   sortlens solo NAME --photo REF.jpg      list photos where NAME is alone (database only)
   sortlens solo-show RUN [--bucket B]     show a solo list: solo | group | check
 
-Imports, dates and solo only READ your files. Running an import again resumes and skips unchanged files.
+Imports, dates, dupes and solo only READ your files. Running an import again resumes and skips unchanged files.
 """
 
 import argparse
@@ -24,7 +26,7 @@ from app.db import store
 from app.importers.base import AlbumRecord
 from app.importers.folder import scan_folder
 from app.importers.takeout import scan_takeout
-from app.pipeline import solo
+from app.pipeline import dupes, solo
 from app.pipeline.dates import run_dates
 from app.pipeline.faces import SAME_PERSON, download_models
 
@@ -85,6 +87,12 @@ def main(argv: list[str] | None = None) -> int:
     f.add_argument("path", type=Path)
     sub.add_parser("stats", help="show counts")
     sub.add_parser("dates", help="best taken-at date for every file (resumes)")
+    du = sub.add_parser("dupes", help="duplicate lists (database only)")
+    du.add_argument("--no-near", action="store_true", help="exact copies only (faster)")
+    du.add_argument("--distance", type=int, default=dupes.NEAR_DISTANCE, help="near: max bits")
+    ds = sub.add_parser("dupes-show", help="show duplicate groups")
+    ds.add_argument("run", type=int)
+    ds.add_argument("--kind", choices=["exact", "near", "album_copy", "edited"])
     sub.add_parser("people", help="names tagged in Google Photos, with counts")
     md = sub.add_parser("models", help="face models")
     md.add_argument("action", choices=["download"])
@@ -129,6 +137,33 @@ def main(argv: list[str] | None = None) -> int:
             on_progress=lambda c: print(f"\r  {c['done']}/{c['todo']}", end="", flush=True),
         )
         print(f"\nDone: {json.dumps(c)}")
+        return 0
+    if args.cmd == "dupes":
+        print("Finding duplicates. Your files are only read; nothing is moved or deleted.")
+        res = dupes.run(
+            con,
+            near=not args.no_near,
+            near_distance=args.distance,
+            batch_size=settings.batch_size,
+            on_progress=lambda c: print(
+                f"\r  files {c['hashed'] + c['cached']}/{c['todo']}  errors {c['errors']}",
+                end="",
+                flush=True,
+            ),
+        )
+        print(f"\nList {res.run_id}: {json.dumps(res.counts)}")
+        print(f"See it: sortlens dupes-show {res.run_id} --kind exact")
+        return 0
+    if args.cmd == "dupes-show":
+        gs = dupes.groups(con, args.run, args.kind)
+        if not gs:
+            print("nothing in this list")
+        for g in gs:
+            print(f"[{g['kind']} #{g['group']}]")
+            for f in g["files"]:
+                where = f"{f['container']}!{f['rel_path']}" if f["container"] else f["rel_path"]
+                d = "" if f["distance"] is None else f"  ({f['distance']} bits)"
+                print(f"  {f['role']:<5} {f['size']:>10}  {where}{d}")
         return 0
     if args.cmd == "stats":
         print(json.dumps(store.stats(con), indent=2))

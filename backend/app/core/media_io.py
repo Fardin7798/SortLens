@@ -3,6 +3,7 @@
 import zipfile
 from pathlib import Path
 from types import TracebackType
+from typing import IO
 
 
 def read_bytes(root: str, container: str, rel_path: str) -> bytes:
@@ -27,6 +28,15 @@ class MediaReader:
         if z is None:
             z = self._zips[container] = zipfile.ZipFile(container)
         return z.read(rel_path)
+
+    def open(self, root: str, container: str, rel_path: str) -> IO[bytes]:
+        """A read-only stream (for big videos). Caller closes it."""
+        if not container:
+            return (Path(root) / rel_path).open("rb")
+        z = self._zips.get(container)
+        if z is None:
+            z = self._zips[container] = zipfile.ZipFile(container)
+        return z.open(rel_path)
 
     def close(self) -> None:
         for z in self._zips.values():
