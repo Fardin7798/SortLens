@@ -51,11 +51,11 @@ def test_no_delete_code_anywhere() -> None:
         for node in ast.walk(ast.parse(py.read_text(encoding="utf-8"))):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                 if node.func.attr in banned:
-                    found.append(f"{py.relative_to(APP)}:{node.lineno} {node.func.attr}")
+                    found.append(f"{py.relative_to(APP).as_posix()}:{node.lineno} {node.func.attr}")
     # The one exception: a half-downloaded face model in SortLens's own data folder.
     assert found == ["pipeline/faces.py:104 unlink"]
     renames = [
-        str(py.relative_to(APP))
+        py.relative_to(APP).as_posix()
         for py in APP.rglob("*.py")
         if "os.rename(" in py.read_text(encoding="utf-8")
     ]
