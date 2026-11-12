@@ -1,5 +1,5 @@
-# Task 03: Date sort
-Status: todo
+# Task 04: Date sort
+Status: done
 Roadmap line: `Date sort (Takeout > EXIF > filename > file time)`
 
 ## Why
@@ -38,7 +38,13 @@ Every photo and video needs one best "taken at" date, with the source recorded, 
 Duplicates, faces, API/SSE, frontend, video metadata (creation_time), timezone guessing from GPS.
 
 ## Done when
-- [ ] Every media row has `dates_done_at` set and, where any source gives one, `taken_at` + `taken_at_source`
-- [ ] Takeout dates untouched; offsets stored only when the file states them
-- [ ] All tests above pass; `scripts/check.sh` passes
-- [ ] `docs/ROADMAP.md` ticked, this file `Status: done`, `docs/tasks/README.md` table updated
+- [x] Every media row has `dates_done_at` set and, where any source gives one, `taken_at` + `taken_at_source`
+- [x] Takeout dates untouched; offsets stored only when the file states them
+- [x] All tests above pass; `scripts/check.sh` passes
+- [x] `docs/ROADMAP.md` ticked, this file `Status: done`, `docs/tasks/README.md` table updated
+
+## What was built (differences from the plan above)
+- Opener: reused `app/core/media_io.py` (from Task 03) with a new `MediaReader` that keeps zip parts open; `run_dates(con, *, reader=None, ...)` instead of `open_file`.
+- Extra source `filename_day` for WhatsApp names (date known, time not), so a made-up 00:00 is not mistaken for a real time.
+- File time is **not** used for Takeout rows: it is the export date, not the capture date. Those rows stay without a date.
+- Also `Screenshot 2023-05-14 at 12.34.56` (macOS) and HEIC EXIF tested.

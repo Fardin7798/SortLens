@@ -2,16 +2,21 @@
 
 One file per task, numbered in build order. A coding agent gets exactly one task:
 
-> Read `AGENTS.md`, then do `docs/tasks/03-date-sort.md`. Stop when its "Done when" list is all true.
+> Read `AGENTS.md`, then do `docs/tasks/NN-name.md`. Stop when its "Done when" list is all true.
 
 ## Status
 | # | Task | Status |
 |---|------|--------|
 | 01 | Importers (Takeout + folder → SQLite) | done |
 | 02 | [Full Takeout metadata](02-takeout-metadata.md) | done |
-| 03 | [Date sort](03-date-sort.md) | todo |
+| 03 | [Solo list](03-solo-list.md) | done |
+| 04 | [Date sort](04-date-sort.md) | done |
+| 05 | [Duplicates](05-duplicates.md) | done |
+| 06 | [Live progress (jobs + SSE)](06-live-progress.md) | done |
+| 07 | [Review + undo](07-review-undo.md) | done |
+| 08 | [Windows one-command setup](08-windows-setup.md) | review |
 
-Later tasks (duplicates, solo category, live progress, review + undo, Windows setup) get a file when their turn comes, so they follow what was really built.
+After 08 the v1 backend is complete. Next: the real Takeout test, then the UI (each gets a task file when its turn comes).
 
 ## Template for a new task
 ```markdown

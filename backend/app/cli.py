@@ -4,21 +4,35 @@
   sortlens import-takeout PATH [PATH...]  read Takeout zip parts or an extracted Takeout folder
   sortlens import-folder PATH             read a laptop folder (recursive)
   sortlens stats                          counts from the local database
+  sortlens dates                          best "taken at" date for every file (resumes)
+  sortlens dupes [--no-near]              duplicate lists: exact, near, album copies, -edited
+  sortlens dupes-show RUN [--kind K]      show them (keep first; nothing is deleted)
+  sortlens plan-trash-dupes RUN [--kinds exact,near]   plan: duplicate extras -> SortLens Trash
+  sortlens plan-move-solo RUN --to FOLDER              plan: a solo list -> that folder
+  sortlens plan-show PLAN                 the full list + its confirm code
+  sortlens apply PLAN --code CODE         move the files (only with the code from plan-show)
+  sortlens undo PLAN --code CODE          move them all back
   sortlens people                         names tagged in Google Photos, with counts
+  sortlens models download                fetch the two small CPU face models (once, ~39 MB)
+  sortlens solo NAME --photo REF.jpg      list photos where NAME is alone (database only)
+  sortlens solo-show RUN [--bucket B]     show a solo list: solo | group | check
 
-Imports only READ your files. Running an import again resumes and skips unchanged files.
+Imports, dates, dupes and solo only READ your files. Files move only via apply, never get
+deleted ('delete' = the location's SortLens Trash folder), and every move is in the undo log. Running an import again resumes and skips unchanged files.
 """
 
 import argparse
 import json
+import sqlite3
 import sys
 from pathlib import Path
 
+from app.core import plans
 from app.core.config import settings
 from app.db import store
-from app.importers.base import AlbumRecord
-from app.importers.folder import scan_folder
-from app.importers.takeout import scan_takeout
+from app.pipeline import dupes, solo, steps
+from app.pipeline.dates import run_dates
+from app.pipeline.faces import SAME_PERSON, download_models
 
 
 def _progress(c: dict[str, int]) -> None:
@@ -30,6 +44,43 @@ def _progress(c: dict[str, int]) -> None:
     )
 
 
+def _solo(con: sqlite3.Connection, args: argparse.Namespace) -> int:
+    from app.pipeline.faces import OpenCVEngine
+
+    if not args.photo.is_file():
+        print(f"not found: {args.photo}", file=sys.stderr)
+        return 2
+    try:
+        engine = OpenCVEngine(settings.models_dir)
+    except (ImportError, FileNotFoundError) as e:
+        print(f"{e}\n(install: pip install 'sortlens[faces]'; then: sortlens models download)",
+              file=sys.stderr)  # fmt: skip
+        return 2
+
+    def prog(c: dict[str, int]) -> None:
+        print(f"\r  faces: {c['scanned'] + c['skipped']}/{c['todo']}  errors {c['errors']}",
+              end="", flush=True)  # fmt: skip
+
+    print("Finding faces. Your photos are only read; nothing is copied, moved or deleted.")
+    try:
+        res = solo.run(
+            con,
+            engine,
+            name=args.name,
+            ref_photo=args.photo.read_bytes(),
+            threshold=args.threshold or SAME_PERSON,
+            tagged_only=args.tagged_only,
+            batch_size=settings.batch_size,
+            on_progress=prog,
+        )
+    except solo.ReferenceError_ as e:
+        print(f"\n{e}. Use a clear photo where only {args.name} is visible.", file=sys.stderr)
+        return 2
+    print(f"\nList {res.run_id}: {json.dumps(res.counts)}")
+    print(f"See it: sortlens solo-show {res.run_id} --bucket solo")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="sortlens", description=__doc__.split("\n")[0])
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -39,7 +90,38 @@ def main(argv: list[str] | None = None) -> int:
     f = sub.add_parser("import-folder", help="read a laptop folder")
     f.add_argument("path", type=Path)
     sub.add_parser("stats", help="show counts")
+    sub.add_parser("doctor", help="check this machine is ready (python, data folder, models)")
+    sub.add_parser("dates", help="best taken-at date for every file (resumes)")
+    du = sub.add_parser("dupes", help="duplicate lists (database only)")
+    du.add_argument("--no-near", action="store_true", help="exact copies only (faster)")
+    du.add_argument("--distance", type=int, default=dupes.NEAR_DISTANCE, help="near: max bits")
+    ds = sub.add_parser("dupes-show", help="show duplicate groups")
+    ds.add_argument("run", type=int)
+    ds.add_argument("--kind", choices=["exact", "near", "album_copy", "edited"])
+    pt = sub.add_parser("plan-trash-dupes", help="plan: duplicate extras -> SortLens Trash")
+    pt.add_argument("run", type=int)
+    pt.add_argument("--kinds", default="exact", help="comma list: exact,near,album_copy")
+    pm = sub.add_parser("plan-move-solo", help="plan: move a solo list into a folder")
+    pm.add_argument("run", type=int)
+    pm.add_argument("--to", type=Path, required=True, help="folder inside the same location")
+    pm.add_argument("--buckets", default="solo", help="comma list: solo,group,check")
+    ps = sub.add_parser("plan-show", help="show a plan's full list and confirm code")
+    ps.add_argument("plan", type=int)
+    for name in ("apply", "undo"):
+        a = sub.add_parser(name, help=f"{name} a plan (needs its confirm code)")
+        a.add_argument("plan", type=int)
+        a.add_argument("--code", required=True)
     sub.add_parser("people", help="names tagged in Google Photos, with counts")
+    md = sub.add_parser("models", help="face models")
+    md.add_argument("action", choices=["download"])
+    so = sub.add_parser("solo", help="photos where one person is alone (lists only)")
+    so.add_argument("name")
+    so.add_argument("--photo", type=Path, required=True, help="clear photo with only that face")
+    so.add_argument("--tagged-only", action="store_true", help="skip untagged photos (faster)")
+    so.add_argument("--threshold", type=float, default=None)
+    ss = sub.add_parser("solo-show", help="show a solo list")
+    ss.add_argument("run", type=int)
+    ss.add_argument("--bucket", choices=["solo", "group", "check"])
     args = parser.parse_args(argv)
 
     if args.cmd == "serve":
@@ -48,7 +130,107 @@ def main(argv: list[str] | None = None) -> int:
         uvicorn.run("app.main:app", host=settings.host, port=settings.port)
         return 0
 
+    if args.cmd == "doctor":
+        from app.core import doctor
+
+        text, good = doctor.report(
+            doctor.run(settings.data_dir, settings.models_dir, settings.db_path)
+        )
+        print(text)
+        return 0 if good else 1
+
+    if args.cmd == "models":
+        for p in download_models(settings.models_dir):
+            print(f"ok  {p}")
+        return 0
+
     con = store.connect(settings.db_path)
+    if args.cmd == "solo":
+        return _solo(con, args)
+    if args.cmd == "solo-show":
+        rows = solo.items(con, args.run, args.bucket)
+        if not rows:
+            print("nothing in this list")
+        for r in rows:
+            sim = "  -  " if r["similarity"] is None else f"{r['similarity']:.2f}"
+            where = f"{r['container']}!{r['rel_path']}" if r["container"] else r["rel_path"]
+            print(f"{r['bucket']:<6} {sim}  faces={r['n_faces']}  {where}  {r['reason']}")
+        return 0
+    if args.cmd == "dates":
+        print("Reading dates. Your files are only read, never changed.")
+        c = run_dates(
+            con,
+            batch_size=settings.batch_size,
+            on_progress=lambda c: print(f"\r  {c['done']}/{c['todo']}", end="", flush=True),
+        )
+        print(f"\nDone: {json.dumps(c)}")
+        return 0
+    if args.cmd == "dupes":
+        print("Finding duplicates. Your files are only read; nothing is moved or deleted.")
+        res = dupes.run(
+            con,
+            near=not args.no_near,
+            near_distance=args.distance,
+            batch_size=settings.batch_size,
+            on_progress=lambda c: print(
+                f"\r  files {c['hashed'] + c['cached']}/{c['todo']}  errors {c['errors']}",
+                end="",
+                flush=True,
+            ),
+        )
+        print(f"\nList {res.run_id}: {json.dumps(res.counts)}")
+        print(f"See it: sortlens dupes-show {res.run_id} --kind exact")
+        return 0
+    if args.cmd == "dupes-show":
+        gs = dupes.groups(con, args.run, args.kind)
+        if not gs:
+            print("nothing in this list")
+        for g in gs:
+            print(f"[{g['kind']} #{g['group']}]")
+            for f in g["files"]:
+                where = f"{f['container']}!{f['rel_path']}" if f["container"] else f["rel_path"]
+                d = "" if f["distance"] is None else f"  ({f['distance']} bits)"
+                print(f"  {f['role']:<5} {f['size']:>10}  {where}{d}")
+        return 0
+    if args.cmd in ("plan-trash-dupes", "plan-move-solo"):
+        try:
+            if args.cmd == "plan-trash-dupes":
+                pid = plans.from_dupes(con, args.run, kinds=tuple(args.kinds.split(",")))
+            else:
+                pid = plans.from_solo(con, args.run, dest=args.to,
+                                      buckets=tuple(args.buckets.split(",")))  # fmt: skip
+        except plans.PlanError as e:
+            print(e, file=sys.stderr)
+            return 2
+        print(f"Plan {pid} made. Nothing has moved. See it: sortlens plan-show {pid}")
+        return 0
+    if args.cmd == "plan-show":
+        plan = plans.get(con, args.plan)
+        if not plan:
+            print("no such plan", file=sys.stderr)
+            return 2
+        print(f"Plan {plan['id']} ({plan['kind']}, {plan['status']}) {plan['title']}")
+        for it in plan["items"]:
+            where = it["src"] or f"{it['container']}!{it['rel_path']}"
+            to = f"  ->  {it['dst']}" if it["dst"] else ""
+            note = f"   [{it['note']}]" if it["note"] else ""
+            print(f"  {it['action']:<5} {it['status']:<8} {where}{to}{note}")
+        print(f"Counts: {json.dumps(plan['counts'])}")
+        if plan["status"] in ("ready", "partial"):
+            print(f"To do it: sortlens apply {plan['id']} --code {plan['code']}")
+        if plan["status"] in ("applied", "partial"):
+            print(f"To undo: sortlens undo {plan['id']} --code {plan['code']}")
+        return 0
+    if args.cmd in ("apply", "undo"):
+        fn = plans.apply if args.cmd == "apply" else plans.undo
+        try:
+            c = fn(con, args.plan, args.code, log_path=settings.undo_log_path,
+                   batch_size=settings.batch_size)  # fmt: skip
+        except plans.PlanError as e:
+            print(e, file=sys.stderr)
+            return 2
+        print(f"Done: {json.dumps(c)}  (undo log: {settings.undo_log_path})")
+        return 0
     if args.cmd == "stats":
         print(json.dumps(store.stats(con), indent=2))
         return 0
@@ -60,28 +242,20 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{n:>7}  {name}")
         return 0
 
-    if args.cmd == "import-takeout":
-        missing = [p for p in args.paths if not p.exists()]
-        if missing:
-            print(f"not found: {', '.join(map(str, missing))}", file=sys.stderr)
-            return 2
-        albums: list[AlbumRecord] = []
-        recs = scan_takeout(args.paths, albums)
-        first = args.paths[0].resolve()
-        source, root = "takeout", str(first.parent if first.is_file() else first)
-    else:
-        if not args.path.is_dir():
-            print(f"not a folder: {args.path}", file=sys.stderr)
-            return 2
-        recs = scan_folder(args.path)
-        source, root = "folder", str(args.path.resolve())
-
-    print(f"Importing ({source}) from {root}. Your files are only read, never changed.")
-    counts = store.import_records(
-        con, recs, source=source, root=root, batch_size=settings.batch_size, on_progress=_progress
-    )
-    if args.cmd == "import-takeout":
-        counts["albums"] = store.save_albums(con, albums)
+    try:
+        if args.cmd == "import-takeout":
+            print("Importing Google Takeout. Your files are only read, never changed.")
+            counts = steps.import_takeout(
+                con, args.paths, batch_size=settings.batch_size, on_progress=_progress
+            )
+        else:
+            print(f"Importing folder {args.path}. Your files are only read, never changed.")
+            counts = steps.import_folder(
+                con, args.path, batch_size=settings.batch_size, on_progress=_progress
+            )
+    except (FileNotFoundError, NotADirectoryError) as e:
+        print(e, file=sys.stderr)
+        return 2
     print(f"\nDone: {json.dumps(counts)}")
     return 0
 

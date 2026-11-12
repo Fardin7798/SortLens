@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from app.importers.base import AlbumRecord, MediaRecord, media_kind
+from app.importers.base import TRASH_DIR, AlbumRecord, MediaRecord, media_kind
 
 SUPPLEMENTAL = "supplemental-metadata"
 YEAR_FOLDER = re.compile(
@@ -90,7 +90,7 @@ def _list_entries(paths: list[Path]) -> list[_Entry]:
     for p in paths:
         if p.is_dir():
             for f in sorted(p.rglob("*")):
-                if f.is_file():
+                if f.is_file() and TRASH_DIR not in f.relative_to(p).parts:
                     st = f.stat()
                     out.append(_Entry("", f.relative_to(p).as_posix(), st.st_size, st.st_mtime))
         elif zipfile.is_zipfile(p):

@@ -6,11 +6,11 @@
 ## v1
 - [x] Importers: Takeout (zip parts or extracted) + folder → MediaRecord in SQLite (read-only, resumable, CLI + /api/stats)
 - [x] Full Takeout metadata: archived, trashed, upload time, camera GPS, views, origin/partner sharing, Trash/Failed Videos/Untitled folders, album metadata, album copies, live-photo pairs, raw sidecar kept, `sortlens people`
-- [ ] Date sort (Takeout > EXIF > filename > file time)
-- [ ] Exact + near duplicates
-- [ ] Solo category from one reference photo (CPU)
-- [ ] Live progress (SSE) + resumable batches
-- [ ] Review screen + approve/undo flow
+- [x] Solo list from one reference photo + name (CPU face match, Takeout tags first, solo / group / check lists, database only)
+- [x] Date sort (Takeout > EXIF > filename > file time; file time only for laptop folders), `sortlens dates`
+- [x] Exact + near duplicates, Takeout album copies, `-edited` pairs (lists only, keep suggested), `sortlens dupes`
+- [x] Live progress (SSE) + resumable batches: `/api/jobs` start / status / stop, `/api/jobs/{id}/events`
+- [x] Review + approve/undo (plans with full list + confirm code; trash = move to the location's `SortLens Trash`, never delete; move a solo list into a folder; undo log + undo)
 - [ ] One-command setup (Windows first)
 
 - [ ] Local UI (built last, after the backend is complete)

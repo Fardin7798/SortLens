@@ -4,13 +4,13 @@ import os
 from collections.abc import Iterator
 from pathlib import Path
 
-from app.importers.base import MediaRecord, media_kind
+from app.importers.base import TRASH_DIR, MediaRecord, media_kind
 
 
 def scan_folder(root: Path) -> Iterator[MediaRecord]:
     root = root.resolve()
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
+        dirnames[:] = sorted(d for d in dirnames if not d.startswith(".") and d != TRASH_DIR)
         for fn in sorted(filenames):
             kind = media_kind(fn)
             if kind is None:

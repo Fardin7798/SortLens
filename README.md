@@ -10,6 +10,16 @@ Early development (v0.1 skeleton). See `docs/ROADMAP.md`.
 ## Runs on
 Windows / Linux / macOS, CPU only (built and tested for a 12th-gen i3 laptop, no GPU), fully offline.
 
+## Setup on Windows (one command)
+Download or clone this repo, open PowerShell in its folder, then:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+# options: -DataDir "D:\SortLens Data"   -NoFaces (skip the solo list)   -Dev (test tools)
+.\sortlens.cmd doctor        # READY means all good
+.\sortlens.cmd import-takeout "D:\Takeout\takeout-001.zip"
+```
+It installs uv and Python 3.12 if missing, installs pinned versions from `backend/uv.lock`, downloads the face models (~39 MB) and runs `doctor`. Safe to run again. It never touches your photos.
+
 ## Quick start (dev)
 ```bash
 cd backend
@@ -21,8 +31,32 @@ Import photos (read-only, safe to re-run; it resumes):
 uv run sortlens import-takeout takeout-001.zip takeout-002.zip   # or an extracted Takeout folder
 uv run sortlens import-folder "D:/Photos"
 uv run sortlens stats
+uv run sortlens dupes     # duplicate lists, then: sortlens dupes-show 1
+uv run sortlens dates     # best taken-at date per file: Takeout > EXIF > file name > file time
 ```
-A one-command setup script comes in v1.
+Solo list: photos where one person is alone (reads only; nothing is moved):
+```bash
+uv pip install -e ".[faces]"            # OpenCV, CPU only
+uv run sortlens models download         # two small ONNX face models, once (~39 MB, SHA-256 checked)
+uv run sortlens solo "Fardin" --photo me.jpg      # add --tagged-only to check only Takeout tags
+uv run sortlens solo-show 1 --bucket solo         # solo | group | check
+```
+Local API (`sortlens serve`, 127.0.0.1 only): start a long step and watch it live.
+```text
+POST /api/jobs   {"kind": "import_takeout", "params": {"paths": ["D:/takeout-001.zip"]}}
+                 kinds: import_takeout | import_folder | dates | dupes | solo
+GET  /api/jobs/{id}/events   live progress (Server-Sent Events), ends with an `end` event
+POST /api/jobs/{id}/stop     stops at the next batch; run again to resume
+```
+Review (the only way a file moves; nothing is ever deleted):
+```bash
+uv run sortlens plan-trash-dupes 1          # duplicate extras -> SortLens Trash (a plan, nothing moves)
+uv run sortlens plan-move-solo 2 --to "Fardin akela"
+uv run sortlens plan-show 3                 # full list + confirm code
+uv run sortlens apply 3 --code <code>       # then, if needed: sortlens undo 3 --code <code>
+```
+API: `POST /api/plans`, `GET /api/plans/{id}`, `POST /api/plans/{id}/apply|undo` with `{"code": ...}`.
+
 
 ## Docs
 - `docs/ARCHITECTURE.md` how it works
@@ -33,4 +67,4 @@ A one-command setup script comes in v1.
 - `docs/tasks/` the work queue, one file per task
 
 ## Working with a coding agent
-Give the agent one task: "Read `AGENTS.md`, then do `docs/tasks/03-date-sort.md`." It must pass `scripts/check.sh` (Windows: `scripts\check.ps1`) and work on `dev`.
+Give the agent one task: "Read `AGENTS.md`, then do `docs/tasks/NN-name.md`." It must pass `scripts/check.sh` (Windows: `scripts\check.ps1`) and work on `dev`.
