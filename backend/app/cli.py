@@ -90,6 +90,7 @@ def main(argv: list[str] | None = None) -> int:
     f = sub.add_parser("import-folder", help="read a laptop folder")
     f.add_argument("path", type=Path)
     sub.add_parser("stats", help="show counts")
+    sub.add_parser("doctor", help="check this machine is ready (python, data folder, models)")
     sub.add_parser("dates", help="best taken-at date for every file (resumes)")
     du = sub.add_parser("dupes", help="duplicate lists (database only)")
     du.add_argument("--no-near", action="store_true", help="exact copies only (faster)")
@@ -128,6 +129,15 @@ def main(argv: list[str] | None = None) -> int:
 
         uvicorn.run("app.main:app", host=settings.host, port=settings.port)
         return 0
+
+    if args.cmd == "doctor":
+        from app.core import doctor
+
+        text, good = doctor.report(
+            doctor.run(settings.data_dir, settings.models_dir, settings.db_path)
+        )
+        print(text)
+        return 0 if good else 1
 
     if args.cmd == "models":
         for p in download_models(settings.models_dir):

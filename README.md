@@ -10,6 +10,16 @@ Early development (v0.1 skeleton). See `docs/ROADMAP.md`.
 ## Runs on
 Windows / Linux / macOS, CPU only (built and tested for a 12th-gen i3 laptop, no GPU), fully offline.
 
+## Setup on Windows (one command)
+Download or clone this repo, open PowerShell in its folder, then:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+# options: -DataDir "D:\SortLens Data"   -NoFaces (skip the solo list)   -Dev (test tools)
+.\sortlens.cmd doctor        # READY means all good
+.\sortlens.cmd import-takeout "D:\Takeout\takeout-001.zip"
+```
+It installs uv and Python 3.12 if missing, installs pinned versions from `backend/uv.lock`, downloads the face models (~39 MB) and runs `doctor`. Safe to run again. It never touches your photos.
+
 ## Quick start (dev)
 ```bash
 cd backend
@@ -47,7 +57,6 @@ uv run sortlens apply 3 --code <code>       # then, if needed: sortlens undo 3 -
 ```
 API: `POST /api/plans`, `GET /api/plans/{id}`, `POST /api/plans/{id}/apply|undo` with `{"code": ...}`.
 
-A one-command setup script comes in v1.
 
 ## Docs
 - `docs/ARCHITECTURE.md` how it works
@@ -58,4 +67,4 @@ A one-command setup script comes in v1.
 - `docs/tasks/` the work queue, one file per task
 
 ## Working with a coding agent
-Give the agent one task: "Read `AGENTS.md`, then do `docs/tasks/04-date-sort.md`." It must pass `scripts/check.sh` (Windows: `scripts\check.ps1`) and work on `dev`.
+Give the agent one task: "Read `AGENTS.md`, then do `docs/tasks/NN-name.md`." It must pass `scripts/check.sh` (Windows: `scripts\check.ps1`) and work on `dev`.
