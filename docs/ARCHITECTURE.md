@@ -28,3 +28,8 @@ Takeout zips / folder ──► importer ──► MediaRecord ──► pipelin
 - Suggested keep: not an album copy > more pixels > real date (not file time) > bigger file > first imported.
 - `edited` pairs keep both. Trash, failed videos and live-photo video halves are skipped.
 - Hash cache `file_hashes` (per file, by size + mtime + hash version) makes runs resumable; one unreadable file is logged and skipped.
+
+## Jobs and live progress
+- `app/pipeline/steps.py`: the long steps (import Takeout, import folder, dates, dupes, solo) as plain functions; the CLI and the API both call them.
+- `app/core/jobs.py`: one job at a time (a CPU laptop + SQLite), in a worker thread with its own connection. Progress from each batch goes to memory and to the `jobs` table about once a second. Stop is cooperative (next batch boundary); committed work stays and the step resumes when run again. A job left `running` when the app closed is marked `stopped` on next start.
+- `app/api/jobs.py`: `POST /api/jobs`, `GET /api/jobs`, `GET /api/jobs/{id}`, `POST /api/jobs/{id}/stop`, `GET /api/jobs/{id}/events` (SSE: `progress` events, then one `end` with the final job; keep-alive comment every 15 s). 409 if a job is already running, 422 for bad input.

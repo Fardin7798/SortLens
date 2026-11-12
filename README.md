@@ -31,6 +31,13 @@ uv run sortlens models download         # two small ONNX face models, once (~39 
 uv run sortlens solo "Fardin" --photo me.jpg      # add --tagged-only to check only Takeout tags
 uv run sortlens solo-show 1 --bucket solo         # solo | group | check
 ```
+Local API (`sortlens serve`, 127.0.0.1 only): start a long step and watch it live.
+```text
+POST /api/jobs   {"kind": "import_takeout", "params": {"paths": ["D:/takeout-001.zip"]}}
+                 kinds: import_takeout | import_folder | dates | dupes | solo
+GET  /api/jobs/{id}/events   live progress (Server-Sent Events), ends with an `end` event
+POST /api/jobs/{id}/stop     stops at the next batch; run again to resume
+```
 A one-command setup script comes in v1.
 
 ## Docs

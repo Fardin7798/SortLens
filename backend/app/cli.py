@@ -23,10 +23,7 @@ from pathlib import Path
 
 from app.core.config import settings
 from app.db import store
-from app.importers.base import AlbumRecord
-from app.importers.folder import scan_folder
-from app.importers.takeout import scan_takeout
-from app.pipeline import dupes, solo
+from app.pipeline import dupes, solo, steps
 from app.pipeline.dates import run_dates
 from app.pipeline.faces import SAME_PERSON, download_models
 
@@ -176,28 +173,20 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{n:>7}  {name}")
         return 0
 
-    if args.cmd == "import-takeout":
-        missing = [p for p in args.paths if not p.exists()]
-        if missing:
-            print(f"not found: {', '.join(map(str, missing))}", file=sys.stderr)
-            return 2
-        albums: list[AlbumRecord] = []
-        recs = scan_takeout(args.paths, albums)
-        first = args.paths[0].resolve()
-        source, root = "takeout", str(first.parent if first.is_file() else first)
-    else:
-        if not args.path.is_dir():
-            print(f"not a folder: {args.path}", file=sys.stderr)
-            return 2
-        recs = scan_folder(args.path)
-        source, root = "folder", str(args.path.resolve())
-
-    print(f"Importing ({source}) from {root}. Your files are only read, never changed.")
-    counts = store.import_records(
-        con, recs, source=source, root=root, batch_size=settings.batch_size, on_progress=_progress
-    )
-    if args.cmd == "import-takeout":
-        counts["albums"] = store.save_albums(con, albums)
+    try:
+        if args.cmd == "import-takeout":
+            print("Importing Google Takeout. Your files are only read, never changed.")
+            counts = steps.import_takeout(
+                con, args.paths, batch_size=settings.batch_size, on_progress=_progress
+            )
+        else:
+            print(f"Importing folder {args.path}. Your files are only read, never changed.")
+            counts = steps.import_folder(
+                con, args.path, batch_size=settings.batch_size, on_progress=_progress
+            )
+    except (FileNotFoundError, NotADirectoryError) as e:
+        print(e, file=sys.stderr)
+        return 2
     print(f"\nDone: {json.dumps(counts)}")
     return 0
 

@@ -9,7 +9,7 @@
 - [x] Solo list from one reference photo + name (CPU face match, Takeout tags first, solo / group / check lists, database only)
 - [x] Date sort (Takeout > EXIF > filename > file time; file time only for laptop folders), `sortlens dates`
 - [x] Exact + near duplicates, Takeout album copies, `-edited` pairs (lists only, keep suggested), `sortlens dupes`
-- [ ] Live progress (SSE) + resumable batches
+- [x] Live progress (SSE) + resumable batches: `/api/jobs` start / status / stop, `/api/jobs/{id}/events`
 - [ ] Review + approve/undo flow (incl. moving an approved solo list into its folder)
 - [ ] One-command setup (Windows first)
 

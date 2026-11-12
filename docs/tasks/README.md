@@ -12,8 +12,9 @@ One file per task, numbered in build order. A coding agent gets exactly one task
 | 03 | [Solo list](03-solo-list.md) | done |
 | 04 | [Date sort](04-date-sort.md) | done |
 | 05 | [Duplicates](05-duplicates.md) | done |
+| 06 | [Live progress (jobs + SSE)](06-live-progress.md) | done |
 
-Later tasks (live progress, review + undo, Windows setup) get a file when their turn comes, so they follow what was really built.
+Later tasks (review + undo, Windows setup) get a file when their turn comes, so they follow what was really built.
 
 ## Template for a new task
 ```markdown
